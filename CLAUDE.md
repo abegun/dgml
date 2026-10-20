@@ -145,6 +145,23 @@ only at the leaf (`src/dgml/clustering/__init__.py`).
 
 - **Type hints required** on all public functions, methods, and module-level
   attributes. `mypy --strict` must pass.
+- **Enums over string literals.** When a value is drawn from a closed set — a
+  mode, kind, state, provider/engine name, config section — define a `StrEnum`
+  and use its members in signatures, comparisons, defaults, and dict keys
+  instead of bare strings (precedents: `Tier` and `ConfigSection` in
+  `models_config.py`, `EngineName` in `pages.py`). Prefer this over
+  `Literal["a", "b"]` aliases in new code, and convert a closed-set magic
+  string or `Literal` alias when you touch the code around it. A `StrEnum`
+  member *is* a `str`, so JSON output, TOML keys, and CLI values keep the same
+  wire format — the conversion is not a breaking change. Not every string is a
+  closed set: free text, ids, paths, and XML tag names stay `str`. Value sets a
+  third-party API owns stay as that API types them — a `Literal` its signature
+  demands (reportlab's `ParagraphStyle(alignment=...)`, `wandb.init(mode=...)`),
+  or the result types it returns (Anthropic's `"succeeded"`/`"errored"`) — since
+  an enum can't satisfy them without a cast. Typed objects carry members; where
+  a value leaves as a plain dict or JSON (a result dict, `as_dict()`, metadata),
+  emit `.value` so consumers get a plain `str`. Code review
+  should flag new closed-set string literals and new `Literal[...]` aliases.
 - Standard PEP 8 / PEP 257 via `ruff`. Line length 100.
 - Prefer the standard library; pull in a dep only when it earns its weight.
 - Public API of each package is what's exported from its top-level
