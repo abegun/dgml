@@ -205,6 +205,7 @@ if TYPE_CHECKING:
         ClassificationConfig,
         ClassificationDecision,
         ClassifyMode,
+        DecisionKind,
         classify_file,
         load_classification_config,
     )
@@ -237,6 +238,7 @@ _LAZY_SUBMODULES = {
     "ClassificationConfig": ".classification",
     "ClassificationDecision": ".classification",
     "ClassifyMode": ".classification",
+    "DecisionKind": ".classification",
     "ExtractionResult": ".grounded",
     "Issue": ".consistency",
     "BulkClassifyBatch": ".auto_classification",
@@ -321,6 +323,7 @@ __all__ = [
     "ConverterConfig",
     "CorruptMetadata",
     "CreateWorkspaceResult",
+    "DecisionKind",
     "DgmlDocument",
     "DgmlError",
     "DgmlNotFound",

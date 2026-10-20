@@ -28,6 +28,7 @@ from typing import Any
 from dgml_core import (
     AddFileResult,
     ClassifyMode,
+    DecisionKind,
     DgmlNotFound,
     DocSetStore,
     FileStore,
@@ -88,16 +89,16 @@ def classify(ws: Workspace, file_id: str, *, mode: str, extract: bool = True) ->
     config = load_classification_config(ws)
     decision = classify_file(ws, file_id, config=config, mode=ClassifyMode(mode))
     out: dict[str, Any] = {
-        "decision": decision.decision,
+        "decision": decision.decision.value,
         "reason": decision.reason,
         "docset_id": None,
         "created_docset": False,
         "extraction": None,
     }
     store = DocSetStore(ws)
-    if decision.decision == "none":
+    if decision.decision == DecisionKind.NONE:
         return out
-    if decision.decision == "new":
+    if decision.decision == DecisionKind.NEW:
         ds = store.create(
             decision.new_name or "Untitled",
             decision.new_description or "",

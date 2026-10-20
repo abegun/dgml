@@ -139,6 +139,7 @@ from dgml_core.batch.types import (
     BatchNotFound,
     BatchRequest,
     BatchSubmitUncertain,
+    ItemErrorKind,
 )
 from dgml_core.errors import (
     BatchExecutionFailed,
@@ -1721,7 +1722,7 @@ class ReplayExecutor(BatchExecutor):
                 self._count_served(served, current, stored)
             else:
                 failed[current] = BatchItemError(
-                    current, "errored", f"its {GONE_REASON}", retryable=True
+                    current, ItemErrorKind.ERRORED, f"its {GONE_REASON}", retryable=True
                 )
 
     def _recorder(self, sink: list[_Wait]) -> Callable[[BatchJob, list[BatchRequest]], None]:
@@ -1965,14 +1966,16 @@ class ReplayExecutor(BatchExecutor):
                 continue
             seen.add(provider_cid)
             current = idmap.get(provider_cid)
-            if isinstance(outcome, BatchItemError) and outcome.kind == "batch_rejected":
+            if isinstance(outcome, BatchItemError) and outcome.kind == ItemErrorKind.BATCH_REJECTED:
                 rejected += 1
             if isinstance(outcome, BatchItemError) or not _has_choices(outcome):
                 if current is not None:
                     failed[current] = (
                         outcome
                         if isinstance(outcome, BatchItemError)
-                        else BatchItemError(current, "errored", "batch result carries no choices")
+                        else BatchItemError(
+                            current, ItemErrorKind.ERRORED, "batch result carries no choices"
+                        )
                     )
                 continue
             _mark_tier(outcome, TIER_BATCH)
@@ -1985,7 +1988,7 @@ class ReplayExecutor(BatchExecutor):
         for provider_cid, current in idmap.items():
             if provider_cid not in seen:
                 failed[current] = BatchItemError(
-                    current, "errored", "no result returned for this request"
+                    current, ItemErrorKind.ERRORED, "no result returned for this request"
                 )
         record["state"] = RECORD_COLLECTED
         return bool(keys) and rejected == len(keys), stored_all

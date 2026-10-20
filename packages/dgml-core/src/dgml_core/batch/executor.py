@@ -449,7 +449,7 @@ class BatchExecutor:
             except Exception as exc:
                 self._log(f"{self._tag} {custom_id}: cannot encode ({type(exc).__name__}: {exc})")
                 failed[custom_id] = BatchItemError(
-                    custom_id, "invalid", f"encode failed: {type(exc).__name__}: {exc}"
+                    custom_id, ItemErrorKind.INVALID, f"encode failed: {type(exc).__name__}: {exc}"
                 )
                 continue
             encodable.append(request)
@@ -548,7 +548,11 @@ class BatchExecutor:
         refused: list[tuple[list[BatchRequest], Exception]], failed: dict[str, BatchItemError]
     ) -> None:
         for refused_batch, why in refused:
-            kind: ItemErrorKind = "batch_rejected" if isinstance(why, BatchRejected) else "invalid"
+            kind = (
+                ItemErrorKind.BATCH_REJECTED
+                if isinstance(why, BatchRejected)
+                else ItemErrorKind.INVALID
+            )
             for request in refused_batch:
                 failed[request.custom_id] = BatchItemError(
                     request.custom_id,
@@ -613,7 +617,8 @@ class BatchExecutor:
         """Every id in *ids* came back ``batch_rejected``."""
         listed = list(ids)
         return bool(listed) and all(
-            (err := failed.get(cid)) is not None and err.kind == "batch_rejected" for cid in listed
+            (err := failed.get(cid)) is not None and err.kind == ItemErrorKind.BATCH_REJECTED
+            for cid in listed
         )
 
     def _wait_all(
@@ -719,7 +724,7 @@ class BatchExecutor:
                 failed[custom_id] = outcome
             elif not _has_choices(outcome):
                 failed[custom_id] = BatchItemError(
-                    custom_id, "errored", "batch result carries no choices"
+                    custom_id, ItemErrorKind.ERRORED, "batch result carries no choices"
                 )
             else:
                 _mark_tier(outcome, TIER_BATCH)
@@ -728,7 +733,7 @@ class BatchExecutor:
         for request in batch:
             if request.custom_id not in seen:
                 failed[request.custom_id] = BatchItemError(
-                    request.custom_id, "errored", "no result returned for this request"
+                    request.custom_id, ItemErrorKind.ERRORED, "no result returned for this request"
                 )
 
     def _fallback(self, kwargs: dict[str, Any]) -> Any:

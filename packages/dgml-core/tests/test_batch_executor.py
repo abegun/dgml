@@ -25,6 +25,7 @@ from dgml_core.batch import (
     BatchJob,
     BatchRequest,
     FakeBackend,
+    ItemErrorKind,
     fake_model_response,
 )
 from dgml_core.batch.executor import DEFAULT_MAX_POLL_S, POLL_MARGIN_S, default_max_poll_s
@@ -85,7 +86,7 @@ def test_every_id_gets_its_response_regardless_of_result_order() -> None:
 def test_errored_item_is_resubmitted_once_then_run_synchronously() -> None:
     def script(req: BatchRequest) -> Any:
         if req.custom_id == "bad":
-            return BatchItemError("bad", "errored", "provider hiccup")
+            return BatchItemError("bad", ItemErrorKind.ERRORED, "provider hiccup")
         return fake_model_response(f"reply-{req.custom_id}")
 
     backend = FakeBackend(script)
@@ -106,7 +107,7 @@ def test_errored_item_is_resubmitted_once_then_run_synchronously() -> None:
 def test_non_retryable_item_falls_back_immediately() -> None:
     def script(req: BatchRequest) -> Any:
         if req.custom_id == "bad":
-            return BatchItemError("bad", "invalid", "schema rejected")
+            return BatchItemError("bad", ItemErrorKind.INVALID, "schema rejected")
         return fake_model_response("ok")
 
     backend = FakeBackend(script)
@@ -123,7 +124,7 @@ def test_expired_item_is_resubmitted_and_served_by_the_batch() -> None:
     def script(req: BatchRequest) -> Any:
         seen[req.custom_id] = seen.get(req.custom_id, 0) + 1
         if req.custom_id == "late" and seen["late"] == 1:
-            return BatchItemError("late", "expired", "24h window passed")
+            return BatchItemError("late", ItemErrorKind.EXPIRED, "24h window passed")
         return fake_model_response(f"reply-{req.custom_id}")
 
     backend = FakeBackend(script)
@@ -139,7 +140,7 @@ def test_expired_item_is_resubmitted_and_served_by_the_batch() -> None:
 
 def test_zero_retries_means_any_failure_falls_back_at_once() -> None:
     def script(req: BatchRequest) -> Any:
-        return BatchItemError(req.custom_id, "expired", "expired")
+        return BatchItemError(req.custom_id, ItemErrorKind.EXPIRED, "expired")
 
     backend = FakeBackend(script)
     ex, sync = _executor(backend, max_item_retries=0)
@@ -273,7 +274,7 @@ def test_stats_to_json_round_trip_shape() -> None:
 def test_cost_fields_price_batch_results_and_fallbacks_at_their_tiers() -> None:
     def script(req: BatchRequest) -> Any:
         if req.custom_id == "bad":
-            return BatchItemError("bad", "invalid", "rejected")
+            return BatchItemError("bad", ItemErrorKind.INVALID, "rejected")
         return fake_model_response("ok", cost=0.25)  # batch price
 
     def sync(_kwargs: dict[str, Any]) -> Any:
@@ -290,7 +291,7 @@ def test_cost_fields_price_batch_results_and_fallbacks_at_their_tiers() -> None:
 def test_failing_sync_fallback_is_returned_as_that_items_outcome() -> None:
     def script(req: BatchRequest) -> Any:
         if req.custom_id == "bad":
-            return BatchItemError("bad", "invalid", "rejected")
+            return BatchItemError("bad", ItemErrorKind.INVALID, "rejected")
         return fake_model_response("ok")
 
     def sync(_kwargs: dict[str, Any]) -> Any:

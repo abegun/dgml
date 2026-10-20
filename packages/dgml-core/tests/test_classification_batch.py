@@ -17,11 +17,12 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from dgml_core.batch import BatchExecutor, BatchItemError, BatchRequest, FakeBackend
+from dgml_core.batch import BatchExecutor, BatchItemError, BatchRequest, FakeBackend, ItemErrorKind
 from dgml_core.classification import (
     ClassificationConfig,
     ClassificationDecision,
     ClassifyMode,
+    DecisionKind,
     classify_file,
     classify_files_batch,
 )
@@ -125,7 +126,9 @@ def test_failures_are_isolated_and_match_sync_messages(
 
     def script(req: BatchRequest) -> Any:
         if "fake-2" in _decoded(str(req.kwargs["messages"])):
-            return BatchItemError(req.custom_id, "invalid", "rejected")  # → sync fallback raises
+            return BatchItemError(
+                req.custom_id, ItemErrorKind.INVALID, "rejected"
+            )  # → sync fallback raises
         return sync_respond(req.kwargs)
 
     executor, _ = _executor(script)
@@ -166,7 +169,9 @@ def test_single_docset_needs_no_request_when_forced(workspace: Workspace) -> Non
         executor=executor,
         mode=ClassifyMode.EXISTING_FORCED,
     )
-    assert batch == {"a": ClassificationDecision(decision="existing", existing_docset_id=only.id)}
+    assert batch == {
+        "a": ClassificationDecision(decision=DecisionKind.EXISTING, existing_docset_id=only.id)
+    }
     assert backend.submitted == []
 
 

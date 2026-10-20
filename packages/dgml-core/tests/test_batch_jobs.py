@@ -36,6 +36,7 @@ from dgml_core.batch import (
     BatchItemError,
     BatchJobStore,
     FakeBackend,
+    ItemErrorKind,
     ReplayExecutor,
     active_session,
     fake_model_response,
@@ -375,7 +376,7 @@ def test_expired_items_are_resubmitted_then_recorded(ws: Workspace) -> None:
         text = request.kwargs["messages"][0]["content"]
         seen[text] = seen.get(text, 0) + 1
         if seen[text] == 1:
-            return BatchItemError(request.custom_id, "expired", "24h passed")
+            return BatchItemError(request.custom_id, ItemErrorKind.EXPIRED, "24h passed")
         return _answer(request)
 
     backend = FakeBackend(expire_once, provider="anthropic")

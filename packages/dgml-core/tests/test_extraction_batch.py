@@ -31,7 +31,7 @@ from typing import Any
 
 import pytest
 from dgml_core import layout
-from dgml_core.batch import BatchExecutor, BatchItemError, BatchRequest, FakeBackend
+from dgml_core.batch import BatchExecutor, BatchItemError, BatchRequest, FakeBackend, ItemErrorKind
 from dgml_core.errors import (
     BatchExecutionFailed,
     SchemaInvalid,
@@ -444,7 +444,7 @@ def test_executor_failure_on_a_request_gets_the_sync_message(
 
     def script(req: BatchRequest) -> Any:
         if _file_of(req.kwargs) == ONE_PAGE:
-            return BatchItemError(req.custom_id, "invalid", "rejected")
+            return BatchItemError(req.custom_id, ItemErrorKind.INVALID, "rejected")
         return _responder()(req.kwargs)
 
     executor = BatchExecutor(FakeBackend(script), min_wave_size=1, sleep=lambda _s: None)
@@ -602,7 +602,7 @@ def test_permissive_schema_fallback_under_batch(workspace: Workspace, capture_kw
 
     def script(req: BatchRequest) -> Any:
         if _file_of(req.kwargs) == wide and inlined(req.kwargs):
-            return BatchItemError(req.custom_id, "invalid", "too many states")
+            return BatchItemError(req.custom_id, ItemErrorKind.INVALID, "too many states")
         return sync_respond(req.kwargs)
 
     executor = BatchExecutor(FakeBackend(script), min_wave_size=1, sleep=lambda _s: None)

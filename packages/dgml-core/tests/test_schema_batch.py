@@ -26,7 +26,7 @@ from typing import Any
 
 import pytest
 from dgml_core import llm
-from dgml_core.batch import BatchExecutor, BatchItemError, FakeBackend
+from dgml_core.batch import BatchExecutor, BatchItemError, FakeBackend, ItemErrorKind
 from dgml_core.errors import SchemaGenerationFailed
 from dgml_core.grounded import (
     GroundedConfig,
@@ -126,7 +126,7 @@ def test_batch_failure_has_the_sync_message(workspace: Workspace) -> None:
     """A request the batch cannot serve falls back to a synchronous call; when
     that fails too, the error reads exactly as the synchronous path's does."""
     _seed_file(workspace, FID)
-    backend = FakeBackend(lambda req: BatchItemError(req.custom_id, "invalid", "bad"))
+    backend = FakeBackend(lambda req: BatchItemError(req.custom_id, ItemErrorKind.INVALID, "bad"))
 
     def sync_execute(_kwargs: dict[str, Any]) -> Any:
         raise RuntimeError("provider exploded")

@@ -38,6 +38,7 @@ from dgml_core.batch import (
     BatchItemError,
     BatchRequest,
     FakeBackend,
+    ItemErrorKind,
     Unit,
     run_stage,
 )
@@ -71,7 +72,7 @@ def _executor(table: dict[str, Any], sync: dict[str, Any] | None = None) -> Batc
     def script(req: BatchRequest) -> Any:
         answer = table[_key(req.custom_id)]
         if answer == "fallback":
-            return BatchItemError(req.custom_id, "invalid", "rejected")
+            return BatchItemError(req.custom_id, ItemErrorKind.INVALID, "rejected")
         return answer
 
     def sync_execute(kwargs: dict[str, Any]) -> Any:
@@ -244,7 +245,7 @@ def _pooled_run(tmp_path: Path, *, sync_workers: int) -> tuple[list[dict[str, An
     def script(req: BatchRequest) -> Any:
         unit, step = _key(req.custom_id).split("#")
         if step == "2":
-            return BatchItemError(req.custom_id, "invalid", "rejected")
+            return BatchItemError(req.custom_id, ItemErrorKind.INVALID, "rejected")
         return FakeLLMResponse("x", cost=0.1 if unit == "a" else 0.0, prompt_tokens=1)
 
     def sync_execute(kwargs: dict[str, Any]) -> Any:

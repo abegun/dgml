@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import logging
 
-from clustering.config.schema import LoggerConfig
+from clustering.config.schema import LoggerConfig, LoggerName
 from clustering.logging_.base import Logger, NoopLogger
 from clustering.logging_.multi import MultiLogger
 
@@ -65,16 +65,16 @@ def _try_wandb(cfg: LoggerConfig, *, run_id: str) -> Logger | None:
 
 def build_logger(cfg: LoggerConfig, *, run_id: str) -> Logger:
     """Build the configured logger, falling back to noop on any error."""
-    if cfg.name == "none":
+    if cfg.name == LoggerName.NONE:
         return NoopLogger()
 
-    if cfg.name == "clearml":
+    if cfg.name == LoggerName.CLEARML:
         return _try_clearml(cfg, run_id=run_id) or NoopLogger()
 
-    if cfg.name == "wandb":
+    if cfg.name == LoggerName.WANDB:
         return _try_wandb(cfg, run_id=run_id) or NoopLogger()
 
-    if cfg.name == "multi":
+    if cfg.name == LoggerName.MULTI:
         backends: list[Logger] = []
         c = _try_clearml(cfg, run_id=run_id)
         if c is not None:
@@ -86,5 +86,5 @@ def build_logger(cfg: LoggerConfig, *, run_id: str) -> Logger:
             return NoopLogger()
         return MultiLogger(backends)
 
-    # Schema's Literal[...] should preclude this, but be defensive.
-    raise ValueError(f"Unknown logger name: {cfg.name!r}")
+    # The schema's LoggerName enum should preclude this, but be defensive.
+    raise ValueError(f"Unknown logger name: '{cfg.name}'")

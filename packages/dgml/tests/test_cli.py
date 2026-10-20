@@ -1724,14 +1724,14 @@ def test_cluster_config_preset_name_passes_preset_overrides(
 def _llm_partition(fid: str) -> Any:
     """A one-cluster LLMClusteringResult that names its emergent bucket in the
     same call (so clustering() needs no second naming round-trip)."""
-    from dgml_core.classification import ClassificationDecision
+    from dgml_core.classification import ClassificationDecision, DecisionKind
     from dgml_core.llm_clustering import LLMClusteringResult
 
     return LLMClusteringResult(
         clusters={fid: "unknown_0"},
         proposals={
             "unknown_0": ClassificationDecision(
-                decision="new",
+                decision=DecisionKind.NEW,
                 new_name="Sample Documents",
                 new_description="test docs",
                 new_key_questions=("What is this document about?",),

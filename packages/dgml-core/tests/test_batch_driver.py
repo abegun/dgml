@@ -27,6 +27,7 @@ from dgml_core.batch import (
     BatchItemError,
     BatchRequest,
     FakeBackend,
+    ItemErrorKind,
     Unit,
     fake_model_response,
     run_stage,
@@ -79,7 +80,9 @@ def _script(table: dict[str, Any]) -> Any:
         try:
             return table[_key(req.custom_id)]
         except KeyError:
-            return BatchItemError(req.custom_id, "invalid", f"unscripted {req.custom_id}")
+            return BatchItemError(
+                req.custom_id, ItemErrorKind.INVALID, f"unscripted {req.custom_id}"
+            )
 
     return script
 
@@ -207,7 +210,7 @@ def test_item_error_fallback_is_counted_on_the_unit() -> None:
 
     def script(req: BatchRequest) -> Any:
         if _key(req.custom_id) == "flaky#1":
-            return BatchItemError(req.custom_id, "errored", "hiccup")
+            return BatchItemError(req.custom_id, ItemErrorKind.ERRORED, "hiccup")
         return FakeLLMResponse("ok")
 
     seen: list[dict[str, Any]] = []
@@ -488,7 +491,7 @@ def test_unserved_request_is_thrown_into_the_generator_which_retries(tmp_path: P
         raise AssertionError("unreachable")
 
     table: dict[str, Any] = {
-        "r#1": BatchItemError("r#1", "invalid", "rejected"),
+        "r#1": BatchItemError("r#1", ItemErrorKind.INVALID, "rejected"),
         "r#2": FakeLLMResponse("second-try", cost=0.02, prompt_tokens=5, completion_tokens=1),
         "other#1": FakeLLMResponse("fine", cost=0.01, prompt_tokens=1, completion_tokens=1),
     }
@@ -513,7 +516,7 @@ def test_uncaught_thrown_failure_fails_only_that_unit(tmp_path: Path) -> None:
     ws = Workspace(root=tmp_path)
     cfg = _cfg(ws)
     table: dict[str, Any] = {
-        "a#1": BatchItemError("a#1", "invalid", "rejected"),
+        "a#1": BatchItemError("a#1", ItemErrorKind.INVALID, "rejected"),
         "b#1": FakeLLMResponse("fine", cost=0.01, prompt_tokens=1),
     }
     units = [_call_unit("a", cfg), _call_unit("b", cfg)]
@@ -537,7 +540,7 @@ def test_generator_may_return_a_fallback_value_from_a_thrown_failure() -> None:
             return "degraded"
 
     table = {
-        "t#1": BatchItemError("t#1", "invalid", "rejected"),
+        "t#1": BatchItemError("t#1", ItemErrorKind.INVALID, "rejected"),
         "x#1": FakeLLMResponse("x"),
     }
     ex = _failing_executor(FakeBackend(_script(table)), ConnectionError("down"))

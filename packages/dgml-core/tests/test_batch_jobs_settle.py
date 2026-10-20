@@ -29,6 +29,7 @@ from dgml_core.batch import (
     BatchItemError,
     BatchJobStore,
     FakeBackend,
+    ItemErrorKind,
     ReplayExecutor,
     active_session,
     fake_model_response,
@@ -300,7 +301,7 @@ class _SecondStaysOpen(FakeBackend):
 def test_failed_items_of_a_collected_batch_are_served_before_pausing(ws: Workspace) -> None:
     def script(request: Any) -> Any:
         if request.kwargs["messages"][0]["content"] == "a":
-            return BatchItemError(request.custom_id, "invalid", "provider rejected it")
+            return BatchItemError(request.custom_id, ItemErrorKind.INVALID, "provider rejected it")
         return _answer(request)
 
     backend = _SecondStaysOpen(script, provider="anthropic", max_requests=1)

@@ -48,6 +48,7 @@ from typing import Any
 from .classification import (
     ClassificationConfig,
     ClassificationDecision,
+    DecisionKind,
     _resolve_api_key,
 )
 from .errors import ClassificationFailed
@@ -371,7 +372,7 @@ def _new_group_decision(group: dict[str, Any]) -> ClassificationDecision | None:
             if isinstance(q, str) and q.strip():
                 questions.append(q.strip())
     return ClassificationDecision(
-        decision="new",
+        decision=DecisionKind.NEW,
         new_name=name.strip(),
         new_description=description,
         new_key_questions=tuple(questions),

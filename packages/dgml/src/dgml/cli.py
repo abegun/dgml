@@ -47,6 +47,7 @@ from dgml_core.classification import (
     ClassifyMode,
     load_classification_config,
 )
+from dgml_core.clustering_types import ClusterMethod, ClusterMode
 from dgml_core.concurrency import map_concurrent
 from dgml_core.consistency import check_workspace
 from dgml_core.conversion import FAMILY_BY_SUFFIX, load_conversion_config
@@ -540,8 +541,8 @@ def _build_parser() -> argparse.ArgumentParser:
     cluster_p.add_argument(
         "--mode",
         dest="mode",
-        choices=("auto", "fresh", "incremental"),
-        default="auto",
+        choices=[m.value for m in ClusterMode],
+        default=ClusterMode.AUTO.value,
         help="Clustering mode. 'auto' (default) runs incremental clustering "
         "when the workspace already has DocSets (assign new files to existing "
         "clusters, open new clusters for the rest) and fresh clustering "
@@ -551,8 +552,8 @@ def _build_parser() -> argparse.ArgumentParser:
     cluster_p.add_argument(
         "--method",
         dest="method",
-        choices=("auto", "embedding", "llm"),
-        default="auto",
+        choices=[m.value for m in ClusterMethod],
+        default=ClusterMethod.AUTO.value,
         help="How documents are grouped, orthogonal to --mode. 'auto' (default) "
         "picks 'llm' for a FRESH run of at most --small-corpus-threshold "
         "clusterable files, and 'embedding' for everything else, incremental "
@@ -2849,8 +2850,8 @@ def _dispatch(args: argparse.Namespace, ws: Workspace, fmt: str) -> int:
                 ws,
                 skip_existing=getattr(args, "skip_existing", False),
                 config=getattr(args, "config", None),
-                mode=getattr(args, "mode", "auto"),
-                method=getattr(args, "method", "auto"),
+                mode=ClusterMode(getattr(args, "mode", ClusterMode.AUTO)),
+                method=ClusterMethod(getattr(args, "method", ClusterMethod.AUTO)),
                 small_corpus_threshold=getattr(args, "small_corpus_threshold", 8),
                 write_stats=args.debug,
                 record_usage=args.debug,
