@@ -2433,7 +2433,14 @@ def _left_behind(session: Any) -> dict[str, Any] | None:
     """The resumable job the just-closed *session* left in the workspace, as
     a payload block — or None when the run finished its job (completed, or a
     silent job deleted with the run)."""
-    if session is None or session.manifest.status != "failed":
+    if session is None:
+        return None
+    # A session exists only once ``dgml_core.batch.jobs`` is imported, so this
+    # import is free here — and litellm stays off the error path of a run
+    # that never opened one.
+    from dgml_core.batch.jobs import JobStatus
+
+    if session.manifest.status != JobStatus.FAILED:
         return None
     try:
         if not session.store.exists():
@@ -2442,7 +2449,7 @@ def _left_behind(session: Any) -> dict[str, Any] | None:
         return None
     return {
         "job_id": session.job_id,
-        "status": session.manifest.status,
+        "status": JobStatus.FAILED.value,
         "resume": f"dgml batch resume {session.job_id}",
     }
 

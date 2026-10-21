@@ -36,7 +36,7 @@ from dgml_core.batch import (
 from dgml_core.batch.driver import CUSTOM_ID_PATTERN
 from dgml_core.errors import BatchExecutionFailed, BatchPending, EmptyModelResponse
 from dgml_core.storage import Workspace
-from dgml_core.usage import TIER_BATCH, TIER_STANDARD, read_events
+from dgml_core.usage import PricingTier, read_events
 
 from .conftest import FakeLLMResponse
 
@@ -248,7 +248,7 @@ def test_one_batch_tier_usage_row_per_unit_with_summed_totals(tmp_path: Path) ->
 
     rows = read_events(ws)
     assert len(rows) == 2
-    assert {r["tier"] for r in rows} == {TIER_BATCH}
+    assert {r["tier"] for r in rows} == {PricingTier.BATCH}
     assert {r["operation"] for r in rows} == {"transcribe"}
     assert all(r["context"] == {"stage": "pass-a"} and r["outcome"] == "ok" for r in rows)
     by_cost = sorted(rows, key=lambda r: r["cost_usd"])
@@ -262,7 +262,7 @@ def test_one_batch_tier_usage_row_per_unit_with_summed_totals(tmp_path: Path) ->
 
 def test_units_inside_record_usage_for_fold_into_the_scope_row(tmp_path: Path) -> None:
     ws = Workspace(root=tmp_path)
-    cfg = _cfg(ws, tier=TIER_BATCH)
+    cfg = _cfg(ws, tier=PricingTier.BATCH)
     backend = FakeBackend(
         _script(
             {
@@ -279,7 +279,7 @@ def test_units_inside_record_usage_for_fold_into_the_scope_row(tmp_path: Path) -
     assert rows[0]["cost_usd"] == pytest.approx(0.03)
     assert rows[0]["prompt_tokens"] == 30 and rows[0]["completion_tokens"] == 3
     # The scope row carries the scope config's own tier — set it to batch there.
-    assert rows[0]["tier"] == TIER_BATCH
+    assert rows[0]["tier"] == PricingTier.BATCH
 
 
 def test_run_stage_sync_produces_the_same_results_at_standard_tier(tmp_path: Path) -> None:
@@ -305,7 +305,7 @@ def test_run_stage_sync_produces_the_same_results_at_standard_tier(tmp_path: Pat
     assert len(seen) == 3
 
     rows = read_events(ws)
-    assert len(rows) == 2 and {r["tier"] for r in rows} == {TIER_STANDARD}
+    assert len(rows) == 2 and {r["tier"] for r in rows} == {PricingTier.STANDARD}
     assert sorted(r["cost_usd"] for r in rows) == [pytest.approx(0.03), pytest.approx(0.05)]
 
 
@@ -396,7 +396,7 @@ def test_executor_failure_becomes_every_unfinished_units_outcome(tmp_path: Path)
     rows = read_events(ws)
     assert len(rows) == 2
     assert all(r["outcome"] == "error" and "provider down" in r["error"] for r in rows)
-    assert {r["tier"] for r in rows} == {TIER_BATCH}
+    assert {r["tier"] for r in rows} == {PricingTier.BATCH}
 
 
 def _multi_step_unit(name: str, cfg: llm.LLMConfig, steps: int) -> Unit:
@@ -588,9 +588,9 @@ def test_row_carries_context_the_generator_set_and_batch_tier(tmp_path: Path) ->
     )
     rows = read_events(ws)
     assert sorted(r["context"]["doc"] for r in rows) == ["a.pdf", "b.pdf"]
-    assert {r["tier"] for r in rows} == {TIER_BATCH}
+    assert {r["tier"] for r in rows} == {PricingTier.BATCH}
     # The configs' own tier is restored once the stage is over.
-    assert cfg_a.tier == cfg_b.tier == TIER_STANDARD
+    assert cfg_a.tier == cfg_b.tier == PricingTier.STANDARD
 
 
 def test_enclosing_standard_scope_row_is_marked_batch(tmp_path: Path) -> None:
@@ -601,9 +601,9 @@ def test_enclosing_standard_scope_row_is_marked_batch(tmp_path: Path) -> None:
         run_stage([_call_unit("a", cfg), _call_unit("b", cfg)], _executor(backend))
     rows = read_events(ws)
     assert len(rows) == 1
-    assert rows[0]["tier"] == TIER_BATCH
+    assert rows[0]["tier"] == PricingTier.BATCH
     assert rows[0]["cost_usd"] == pytest.approx(0.02)
-    assert cfg.tier == TIER_STANDARD
+    assert cfg.tier == PricingTier.STANDARD
 
 
 def test_sync_scope_row_stays_standard(tmp_path: Path) -> None:
@@ -612,7 +612,7 @@ def test_sync_scope_row_stays_standard(tmp_path: Path) -> None:
     cfg = _cfg(ws)
     with llm.record_usage_for(cfg):
         run_stage_sync([_call_unit("a", cfg)], lambda _k: FakeLLMResponse("ok", cost=0.01))
-    assert [r["tier"] for r in read_events(ws)] == [TIER_STANDARD]
+    assert [r["tier"] for r in read_events(ws)] == [PricingTier.STANDARD]
 
 
 def test_unit_that_makes_no_request_writes_no_row(tmp_path: Path) -> None:

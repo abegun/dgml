@@ -61,7 +61,7 @@ from .llm import (
 from .models import DocSet
 from .models_config import ConfigSection, Tier, resolve_tiered_model
 from .storage import Workspace
-from .usage import OPERATION_CLASSIFY
+from .usage import UsageOperation
 from .utils import gather_file_pages, image_to_data_url
 
 if TYPE_CHECKING:
@@ -486,7 +486,7 @@ def classify_steps(
         max_tokens=None,
         workspace=workspace,
         record_usage=record_usage,
-        operation=OPERATION_CLASSIFY,
+        operation=UsageOperation.CLASSIFY,
         context={"file_ids": file_ids},
     )
     steps = steps_with_tools(

@@ -63,7 +63,7 @@ from typing import TYPE_CHECKING, Any
 
 from . import layout, llm
 from .config import load_merged_config
-from .dg_refs import METHOD_DEFAULTED, METHOD_INFERRED, METHODS
+from .dg_refs import METHODS, ValueMethod
 from .docsets import DocSetStore
 from .errors import (
     CONVERT_TO_PDF_OPERATION,
@@ -141,13 +141,11 @@ from .textmatch import Word as TextWord
 from .textmatch import fuzzy_norm, line_boxes
 from .toon import encode_phase3_words
 from .usage import (
-    OPERATION_EXTRACT_VALUES,
-    OPERATION_SCHEMA_GENERATE,
-    OUTCOME_ERROR,
-    OUTCOME_OK,
-    TIER_STANDARD,
     TIERS_KEY,
+    PricingTier,
     UsageEvent,
+    UsageOperation,
+    UsageOutcome,
     add_partial,
     public_totals,
     scope_events,
@@ -674,7 +672,7 @@ def generate_schema_steps(
         reasoning_effort=_DEFAULT_REASONING_EFFORT,
         workspace=workspace,
         record_usage=record_usage,
-        operation=OPERATION_SCHEMA_GENERATE,
+        operation=UsageOperation.SCHEMA_GENERATE,
         context={"from_file_ids": list(file_ids)},
     )
     steps = _schema_request_steps(
@@ -1217,7 +1215,7 @@ class _FileExtraction:
         config: GroundedConfig,
         write_stats: bool,
         record_usage: bool,
-        tier: str = TIER_STANDARD,
+        tier: PricingTier = PricingTier.STANDARD,
     ) -> None:
         self.workspace = workspace
         self.docset_id = docset_id
@@ -1247,7 +1245,7 @@ class _FileExtraction:
         self.phase1_totals: dict[str, Any] = _empty_totals()
         self.phase3_totals: dict[str, Any] = _empty_totals()
         self.tool_calls_total = 0
-        self.outcome = OUTCOME_ERROR
+        self.outcome = UsageOutcome.ERROR
         self.error_msg: str | None = None
         self.started = time.monotonic()
 
@@ -1622,7 +1620,7 @@ class _FileExtraction:
             mode = "extraction"
             doc = standalone_extraction_doc(final_values, vocab=self.vocab)
         workspace.blobs.put_blob(xml_key, doc.encode("utf-8"))
-        self.outcome = OUTCOME_OK
+        self.outcome = UsageOutcome.OK
         # The values are already stored: telemetry failing to build must not
         # turn this into a failed extraction.
         self.stats_doc = _safe_summary(self._stats_summary, "stats")
@@ -1705,7 +1703,7 @@ class _FileExtraction:
     def _append_usage_rows(self, usage_doc: dict[str, Any]) -> None:
         event = UsageEvent(
             at=now_iso(),
-            operation=OPERATION_EXTRACT_VALUES,
+            operation=UsageOperation.EXTRACT_VALUES,
             model=self.config.values_model,
             cost_usd=usage_doc["cost_usd"],
             prompt_tokens=usage_doc["prompt_tokens"],
@@ -1978,7 +1976,6 @@ def extract_values_batch_pairs(
     Duplicate *pairs* raise :class:`ValueError`.
     """
     from .batch import Unit, UnitOutcome, run_stage
-    from .usage import TIER_BATCH
 
     if len(set(pairs)) != len(pairs):
         dupes = sorted({p for p in pairs if pairs.count(p) > 1})
@@ -2022,7 +2019,7 @@ def extract_values_batch_pairs(
                 config=config,
                 write_stats=write_stats,
                 record_usage=record_usage,
-                tier=TIER_BATCH,
+                tier=PricingTier.BATCH,
             )
         except Exception as exc:
             # Setup failure (no schema, no PDF, unset key env, …): raised before
@@ -2217,7 +2214,7 @@ def _write_extraction_stats(
 def _build_extraction_stats(
     *,
     model: str,
-    outcome: str,
+    outcome: UsageOutcome,
     error_msg: str | None,
     phase1_totals: dict[str, Any],
     phase3_totals: dict[str, Any],
@@ -2267,7 +2264,7 @@ def _build_extraction_stats(
     return {
         "completed_at": now_iso(),
         "model": model,
-        "outcome": outcome,
+        "outcome": outcome.value,
         "error": error_msg,
         "phases": {
             "phase1": {
@@ -4254,12 +4251,12 @@ def _normalize_leaf_provenance(values: Any) -> int:
         values.pop("locations", None)
         method = values.get("method")
         used = bool(inputs or evidence)
-        if method == METHOD_DEFAULTED:
+        if method == ValueMethod.DEFAULTED:
             values.pop("inputs", None)
             values.pop("evidence", None)
             return 0
         if used and method is None:
-            values["method"] = METHOD_INFERRED
+            values["method"] = ValueMethod.INFERRED.value
         elif not used and method is not None:
             del values["method"]
             return 1

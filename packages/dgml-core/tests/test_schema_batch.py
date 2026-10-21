@@ -36,7 +36,7 @@ from dgml_core.grounded import (
     schema_rnc_from_result,
 )
 from dgml_core.storage import Workspace
-from dgml_core.usage import TIER_BATCH, TIER_STANDARD, read_events
+from dgml_core.usage import PricingTier, read_events
 
 from .conftest import FakeLLMResponse
 from .test_grounded import DEFAULT_SCHEMA_MODEL, DEFAULT_VALUES_MODEL, _seed_file
@@ -116,7 +116,7 @@ def test_batch_matches_sync_except_tier(workspace: Workspace, capture_kwargs: An
     assert sent == captured.kwargs  # the batch request is the sync request
     assert len(backend.submitted) == 1  # one request, one batch, one round trip
     sync_row, batch_row = _rows(workspace)
-    assert (sync_row["tier"], batch_row["tier"]) == (TIER_STANDARD, TIER_BATCH)
+    assert (sync_row["tier"], batch_row["tier"]) == (PricingTier.STANDARD, PricingTier.BATCH)
     assert {k: v for k, v in sync_row.items() if k != "tier"} == {
         k: v for k, v in batch_row.items() if k != "tier"
     }

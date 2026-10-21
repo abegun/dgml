@@ -37,12 +37,10 @@ from dgml_core.batch import (
     start_session,
 )
 from dgml_core.batch.jobs import (
-    RECORD_DROPPED,
-    RECORD_OPEN,
-    STATUS_COMPLETED,
-    STATUS_FAILED,
     JobSession,
+    JobStatus,
     Manifest,
+    RecordState,
     credential_ref,
     resolve_credential,
 )
@@ -118,8 +116,8 @@ def test_a_run_that_ends_with_an_unpollable_batch_cancels_it_and_fails(
     session.close(None)  # the caller soft-failed and the command "succeeded"
     assert backend.canceled  # it stops billing
     manifest = BatchJobStore(ws, session.job_id).load()
-    assert manifest.status == STATUS_FAILED and "canceled" in (manifest.error or "")
-    assert [r["state"] for r in manifest.provider_batches] == [RECORD_DROPPED]
+    assert manifest.status == JobStatus.FAILED and "canceled" in (manifest.error or "")
+    assert [r["state"] for r in manifest.provider_batches] == [RecordState.DROPPED]
 
     good = FakeBackend(_answer, provider="anthropic")
     resumed = _open(ws, session.job_id, wait=True)  # failed is resumable
@@ -139,7 +137,7 @@ def test_a_finished_open_batch_is_collected_when_the_run_ends(ws: Workspace) -> 
     session.close(None)
     manifest = BatchJobStore(ws, session.job_id).load()
     assert not backend.canceled
-    assert manifest.status == STATUS_COMPLETED
+    assert manifest.status == JobStatus.COMPLETED
 
 
 # ---- 4. the lease and merge-on-save -------------------------------------------------
@@ -202,7 +200,7 @@ def test_a_completed_job_keeps_only_a_summary(ws: Workspace) -> None:
     job_dir = ws.root / layout.BATCHES_DIR / session.job_id
     assert not (job_dir / "responses").exists() or not any((job_dir / "responses").iterdir())
     (manifest,) = list_jobs(ws)
-    assert manifest.status == STATUS_COMPLETED and manifest.billed == []
+    assert manifest.status == JobStatus.COMPLETED and manifest.billed == []
     assert all("keys" not in r and r["requests"] == 1 for r in manifest.provider_batches)
 
 
@@ -350,5 +348,5 @@ def test_open_record_is_kept_open_on_interrupt(ws: Workspace) -> None:
         _executor(backend, session).run_wave({"x-1": _kwargs("a")})
     session.close(KeyboardInterrupt())
     manifest = BatchJobStore(ws, session.job_id).load()
-    assert [r["state"] for r in manifest.provider_batches] == [RECORD_OPEN]
+    assert [r["state"] for r in manifest.provider_batches] == [RecordState.OPEN]
     assert not backend.canceled

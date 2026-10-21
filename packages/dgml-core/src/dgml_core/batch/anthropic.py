@@ -78,6 +78,7 @@ from dgml_core.batch.types import (
     BatchStatus,
     ItemErrorKind,
 )
+from dgml_core.usage import PricingTier
 
 PROVIDER = "anthropic"
 DEFAULT_API_BASE = "https://api.anthropic.com"
@@ -474,7 +475,7 @@ class AnthropicBatchBackend:
         except Exception:  # unknown model price → unknown cost, as on the sync path
             cost = None
         response._hidden_params["response_cost"] = cost
-        response._hidden_params["tier"] = "batch"
+        response._hidden_params["tier"] = PricingTier.BATCH.value
         return response
 
 

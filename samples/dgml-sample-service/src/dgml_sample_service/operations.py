@@ -89,7 +89,7 @@ def classify(ws: Workspace, file_id: str, *, mode: str, extract: bool = True) ->
     config = load_classification_config(ws)
     decision = classify_file(ws, file_id, config=config, mode=ClassifyMode(mode))
     out: dict[str, Any] = {
-        "decision": decision.decision.value,
+        "decision": str(decision.decision),
         "reason": decision.reason,
         "docset_id": None,
         "created_docset": False,

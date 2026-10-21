@@ -29,7 +29,7 @@ from dgml_core.classification import (
 from dgml_core.docsets import DocSetStore
 from dgml_core.errors import BatchExecutionFailed, ClassificationFailed, NoExistingDocSets
 from dgml_core.storage import Workspace
-from dgml_core.usage import TIER_BATCH, read_events
+from dgml_core.usage import PricingTier, read_events
 
 from .test_classification import (
     DEFAULT_TEST_MODEL,
@@ -93,7 +93,7 @@ def test_usage_rows_are_batch_tier_with_context(workspace: Workspace) -> None:
         workspace, fids, config=_cfg(), docsets=docsets, executor=executor, record_usage=True
     )
     rows = read_events(workspace)
-    assert [r["tier"] for r in rows] == [TIER_BATCH, TIER_BATCH]
+    assert [r["tier"] for r in rows] == [PricingTier.BATCH, PricingTier.BATCH]
     assert [r["context"]["file_ids"] for r in rows] == [[f] for f in fids]
 
 

@@ -48,7 +48,7 @@ from clustering.consolidation import AdjudicationRequest, AdjudicationVerdict
 
 from .classification import ClassificationConfig, _resolve_api_key
 from .llm import CallResult, LLMConfig, call_with_tools
-from .usage import OPERATION_CLUSTER
+from .usage import UsageOperation
 from .utils import MANY_IMAGE_MAX_EDGE, image_to_data_url
 
 if TYPE_CHECKING:
@@ -208,7 +208,7 @@ class LLMAdjudicator:
             api_base=self.config.api_base,
             max_tokens=None,
             record_usage=self.record_usage,
-            operation=OPERATION_CLUSTER,
+            operation=UsageOperation.CLUSTER,
             context={"consolidation": doc_ids},
         )
 

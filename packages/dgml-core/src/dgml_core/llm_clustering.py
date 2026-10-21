@@ -57,7 +57,7 @@ from .models import DocSet
 from .prompts import PromptKey
 from .prompts import get as prompt
 from .storage import Workspace
-from .usage import OPERATION_CLUSTER
+from .usage import UsageOperation
 from .utils import MANY_IMAGE_MAX_EDGE, gather_file_pages, image_to_data_url
 
 _TOOL_GROUP = "group_documents"
@@ -198,7 +198,7 @@ def llm_cluster_files(
         temperature=0.0,
         workspace=workspace,
         record_usage=record_usage,
-        operation=OPERATION_CLUSTER,
+        operation=UsageOperation.CLUSTER,
         context={"file_ids": usable},
     )
     try:
