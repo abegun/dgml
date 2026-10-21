@@ -22,6 +22,8 @@ which is sensitive to each algorithm's defaults.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 import torch
 from clustering.config.schema import (
@@ -38,6 +40,7 @@ from clustering.scenarios.clustering import (
     cluster_embeddings,
     manifold_affinity_propagation,
     manifold_dbscan,
+    manifold_graph_cc,
     manifold_leiden,
     manifold_meanshift,
     manifold_optics,
@@ -332,3 +335,43 @@ def test_leiden_k_selection_does_not_leak_into_the_emergent_bucket() -> None:
     off_labels, _ = cluster_emergent_bucket(emb, scenario=base, manifold=manifold, seed=0)
     on_labels, _ = cluster_emergent_bucket(emb, scenario=on, manifold=manifold, seed=0)
     assert torch.equal(off_labels, on_labels)
+
+
+# ── Unknown names fail with the choices listed ────────────────────────────
+# The signatures take enum members, but a caller may pass a plain string. An
+# unknown one must raise a ValueError naming the valid choices — not reach an
+# ``assert_never`` as a bare AssertionError.
+_BOGUS: Any = "bogus"
+_R_METHOD_ERROR = r"Unknown r_method 'bogus'; expected 'knee' or 'mst_gap'\."
+
+
+@pytest.mark.parametrize(
+    ("function", "match"),
+    [
+        (
+            "cluster_embeddings",
+            r"Unknown clustering algorithm 'bogus'; expected one of 'kmeans', 'hdbscan', "
+            r"'graph_cc', 'leiden', 'dbscan', 'optics', 'affinity_propagation', 'meanshift'\.",
+        ),
+        (
+            "manifold_leiden",
+            r"Unknown graph_method 'bogus'; expected 'knn', 'mutual_knn', or 'radius'\.",
+        ),
+        ("manifold_graph_cc", _R_METHOD_ERROR),
+        ("manifold_dbscan", _R_METHOD_ERROR),
+    ],
+)
+def test_unknown_string_choice_raises_value_error_listing_choices(
+    function: str, match: str
+) -> None:
+    emb = _three_blobs(dim=8)
+    m = build_manifold(ManifoldConfig(name=ManifoldName.EUCLIDEAN, dim=8, curvature=0.0))
+    with pytest.raises(ValueError, match=match):
+        if function == "cluster_embeddings":
+            cluster_embeddings(emb, m, algorithm=_BOGUS, k=3)
+        elif function == "manifold_leiden":
+            manifold_leiden(emb, manifold=m, graph_method=_BOGUS)
+        elif function == "manifold_graph_cc":
+            manifold_graph_cc(emb, manifold=m, r_method=_BOGUS)
+        else:
+            manifold_dbscan(emb, manifold=m, r_method=_BOGUS)

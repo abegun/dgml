@@ -163,7 +163,9 @@ only at the leaf (`src/dgml/clustering/__init__.py`).
   or the result types it returns (Anthropic's `"succeeded"`/`"errored"`) — since
   an enum can't satisfy them without a cast. Typed objects carry members; where
   a value leaves as a plain dict or JSON (a result dict, `as_dict()`, metadata),
-  emit `.value` so consumers get a plain `str`; where a persisted value is read
+  emit `str(x)` so consumers get a plain `str` (same bytes as `.value` for a
+  member, and it doesn't crash when a caller built the object with a plain
+  string — public dataclasses don't coerce); where a persisted value is read
   back (a manifest, a usage row), coerce it at the load boundary so the typed
   field holds a member. Code review should flag new closed-set string literals,
   constant groups, and `Literal[...]` aliases.

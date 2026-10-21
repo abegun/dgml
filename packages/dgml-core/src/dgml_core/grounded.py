@@ -57,6 +57,7 @@ import logging
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -1281,7 +1282,7 @@ class _FileExtraction:
         self.invariants_checked = 0
         self.invariant_violations: list[str] = []
         self.phase1_layout: dict[str, Any] | None = None
-        self.phase1_tool_schema_mode = "inlined"
+        self.phase1_tool_schema_mode = ToolSchemaMode.INLINED
         self.phase1_chunk_calls = 0
         self.phase1_truncated_retries = 0
         self.phase1_envelope_repairs = 0
@@ -2245,7 +2246,7 @@ def _build_extraction_stats(
     invariants_checked: int,
     invariant_violations: list[str],
     phase1_layout: dict[str, Any] | None,
-    phase1_tool_schema: str,
+    phase1_tool_schema: ToolSchemaMode,
     phase1_chunk_calls: int,
     phase1_truncated_retries: int,
     phase1_envelope_repairs: int,
@@ -2264,7 +2265,7 @@ def _build_extraction_stats(
     return {
         "completed_at": now_iso(),
         "model": model,
-        "outcome": outcome.value,
+        "outcome": str(outcome),
         "error": error_msg,
         "phases": {
             "phase1": {
@@ -2351,7 +2352,7 @@ def _build_extraction_stats(
         # provider rejected the inlined schema (Gemini "too many states")
         # and the retry ran with a bare object parameter + code-side
         # vocabulary pruning.
-        "phase1_tool_schema": phase1_tool_schema,
+        "phase1_tool_schema": str(phase1_tool_schema),
     }
 
 
@@ -3482,6 +3483,21 @@ def _append_entries_tool() -> dict[str, Any]:
     }
 
 
+class ToolSchemaMode(StrEnum):
+    """How phase 1 passed the docset schema to the model (``extraction_stats.json``
+    ``phase1_tool_schema``).
+
+    ``INLINED`` (the default) rides the schema inside the ``submit_values`` tool
+    parameter, so the provider enforces its shape. ``PERMISSIVE`` is the fallback
+    after a provider rejects the inlined schema as too large (Gemini's "too many
+    states"): a bare object parameter, with the vocabulary pruned code-side and
+    the full schema still in the user prompt.
+    """
+
+    INLINED = "inlined"
+    PERMISSIVE = "permissive"
+
+
 @dataclass
 class Phase1Result:
     """Phase-1 progress and outcome for one file.
@@ -3507,7 +3523,7 @@ class Phase1Result:
     it as :class:`ValuesExtractionFailed`.
     """
 
-    tool_schema_mode: str = "inlined"
+    tool_schema_mode: ToolSchemaMode = ToolSchemaMode.INLINED
     chunked: bool = False
     truncated_retries: int = 0
     chunk_calls: int = 0
@@ -3578,7 +3594,9 @@ def phase1_steps(
     def _run(pdf: bytes, part: _PdfPart | None) -> LLMSteps[_Phase1Run]:
         while True:
             values_param = (
-                _PERMISSIVE_VALUES_PARAM if run.tool_schema_mode == "permissive" else tool_schema
+                _PERMISSIVE_VALUES_PARAM
+                if run.tool_schema_mode == ToolSchemaMode.PERMISSIVE
+                else tool_schema
             )
             try:
                 return (
@@ -3609,11 +3627,14 @@ def phase1_steps(
                 run.chunked = True
                 run.truncated_retries += 1
             except ValuesExtractionFailed as exc:
-                if run.tool_schema_mode == "permissive" or not _is_tool_schema_too_large(exc):
+                if (
+                    run.tool_schema_mode == ToolSchemaMode.PERMISSIVE
+                    or not _is_tool_schema_too_large(exc)
+                ):
                     raise
                 # Gemini's constrained decoder rejected the inlined schema; the
                 # model still sees the full schema in the user prompt.
-                run.tool_schema_mode = "permissive"
+                run.tool_schema_mode = ToolSchemaMode.PERMISSIVE
 
     # The whole PDF goes in one request, as it always has. Only when the
     # provider refuses that request as too large is the document split into
@@ -3659,7 +3680,7 @@ def phase1_steps(
     # layer, and pruning it too would discard off-schema values *before*
     # phases 2/3 rather than at serialization — a behavior change beyond
     # what these fallbacks need.
-    if run.tool_schema_mode == "permissive" or run.chunked:
+    if run.tool_schema_mode == ToolSchemaMode.PERMISSIVE or run.chunked:
         args["values"] = kept
     run.values = args["values"]
     return run

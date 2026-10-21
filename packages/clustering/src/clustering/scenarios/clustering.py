@@ -62,7 +62,8 @@ import math
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from enum import StrEnum
+from typing import Any, assert_never, cast
 
 import numpy as np
 import torch
@@ -82,6 +83,19 @@ from clustering.config.schema import (
 from clustering.manifolds.base import ManifoldHead
 
 _log = logging.getLogger(__name__)
+
+
+def _check_choice(cls: type[StrEnum], value: str, message: str) -> None:
+    """Raise ``ValueError(message)`` unless ``value`` names a member of ``cls``.
+
+    The public entry points take enum members, but a caller may pass the plain
+    string (a ``StrEnum`` member *is* one). An unknown string must fail with the
+    choices spelled out, not reach an ``assert_never`` as an ``AssertionError``.
+    """
+    try:
+        cls(value)
+    except ValueError:
+        raise ValueError(message) from None
 
 
 def reduce_embeddings(
@@ -645,12 +659,15 @@ def manifold_graph_cc(
 
     # ── Determine radius ────────────────────────────────────────────────
     if radius is None:
+        _check_choice(
+            RadiusMethod, r_method, f"Unknown r_method {r_method!r}; expected 'knee' or 'mst_gap'."
+        )
         if r_method == RadiusMethod.KNEE:
             r = _radius_knee(d_np, k=k_neighbors)
         elif r_method == RadiusMethod.MST_GAP:
             r = _radius_mst_gap(d_np)
         else:
-            raise ValueError(f"Unknown r_method {r_method!r}; expected 'knee' or 'mst_gap'.")
+            assert_never(r_method)
         _log.info(
             "manifold_graph_cc: auto-radius via '%s' → r=%.6f (N=%d, k=%d)",
             r_method,
@@ -904,6 +921,11 @@ def manifold_leiden(
     d_np = np.clip(d_np, 0.0, np.finfo(np.float64).max).astype(np.float64, copy=False)
 
     # ── Build edge list ─────────────────────────────────────────────────
+    _check_choice(
+        LeidenGraphMethod,
+        graph_method,
+        f"Unknown graph_method {graph_method!r}; expected 'knn', 'mutual_knn', or 'radius'.",
+    )
     if graph_method == LeidenGraphMethod.KNN:
         src, dst, dist = _knn_edges(d_np, k=k_neighbors, mutual=False)
     elif graph_method == LeidenGraphMethod.MUTUAL_KNN:
@@ -926,9 +948,7 @@ def manifold_leiden(
             r = float(radius)
         src, dst, dist = _radius_edges(d_np, radius=r)
     else:
-        raise ValueError(
-            f"Unknown graph_method {graph_method!r}; expected 'knn', 'mutual_knn', or 'radius'."
-        )
+        assert_never(graph_method)
 
     weights = _distance_to_similarity(dist)
 
@@ -1120,12 +1140,15 @@ def manifold_dbscan(
     d_np = _manifold_distance_matrix(embeddings, manifold)
 
     if eps is None:
+        _check_choice(
+            RadiusMethod, r_method, f"Unknown r_method {r_method!r}; expected 'knee' or 'mst_gap'."
+        )
         if r_method == RadiusMethod.KNEE:
             r = _radius_knee(d_np, k=k_neighbors)
         elif r_method == RadiusMethod.MST_GAP:
             r = _radius_mst_gap(d_np)
         else:
-            raise ValueError(f"Unknown r_method {r_method!r}; expected 'knee' or 'mst_gap'.")
+            assert_never(r_method)
         # A degenerate knee at 0 would make every point its own noise cluster;
         # nudge to the smallest positive off-diagonal distance so DBSCAN can
         # connect at least the nearest pairs.
@@ -1463,6 +1486,12 @@ def cluster_embeddings(
     Keeps S1 / S2 callers parameterised on ``algorithm`` without
     branching at every call site.
     """
+    _check_choice(
+        ClusterAlgorithm,
+        algorithm,
+        f"Unknown clustering algorithm {algorithm!r}; expected one of 'kmeans', 'hdbscan', "
+        "'graph_cc', 'leiden', 'dbscan', 'optics', 'affinity_propagation', 'meanshift'.",
+    )
     if algorithm == ClusterAlgorithm.KMEANS:
         if k is None:
             raise ValueError("cluster_embeddings(algorithm='kmeans') requires k; got None.")
@@ -1552,10 +1581,7 @@ def cluster_embeddings(
             cluster_all=meanshift_cluster_all,
             seed=seed,
         )
-    raise ValueError(
-        f"Unknown clustering algorithm {algorithm!r}; expected one of 'kmeans', 'hdbscan', "
-        "'graph_cc', 'leiden', 'dbscan', 'optics', 'affinity_propagation', 'meanshift'."
-    )
+    assert_never(algorithm)
 
 
 def _auto_temperature(centroids: torch.Tensor, manifold: ManifoldHead) -> float:

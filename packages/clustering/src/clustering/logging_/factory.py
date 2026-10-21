@@ -30,6 +30,7 @@ raised), so a missing credential never crashes a research run.
 from __future__ import annotations
 
 import logging
+from typing import assert_never
 
 from clustering.config.schema import LoggerConfig, LoggerName
 from clustering.logging_.base import Logger, NoopLogger
@@ -64,7 +65,16 @@ def _try_wandb(cfg: LoggerConfig, *, run_id: str) -> Logger | None:
 
 
 def build_logger(cfg: LoggerConfig, *, run_id: str) -> Logger:
-    """Build the configured logger, falling back to noop on any error."""
+    """Build the configured logger, falling back to noop on any error.
+
+    Raises:
+        ValueError: If ``cfg.name`` is not a :class:`LoggerName` (possible only
+            for a config built with ``model_construct``, which skips validation).
+    """
+    try:
+        LoggerName(cfg.name)
+    except ValueError:
+        raise ValueError(f"Unknown logger name: {cfg.name!r}") from None
     if cfg.name == LoggerName.NONE:
         return NoopLogger()
 
@@ -86,5 +96,4 @@ def build_logger(cfg: LoggerConfig, *, run_id: str) -> Logger:
             return NoopLogger()
         return MultiLogger(backends)
 
-    # The schema's LoggerName enum should preclude this, but be defensive.
-    raise ValueError(f"Unknown logger name: '{cfg.name}'")
+    assert_never(cfg.name)

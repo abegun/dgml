@@ -414,8 +414,8 @@ class S1Unsupervised(Scenario):
                 "n_noise": n_noise,
                 "n_review": int(sum(review)),
                 "centroids_shape": tuple(centroids.shape),
-                "algorithm": algorithm.value,
-                "reduce_method": sc.reduce_method.value,
+                "algorithm": str(algorithm),
+                "reduce_method": str(sc.reduce_method),
                 "reduce_dim": (
                     int(cluster_input.shape[-1]) if cluster_input is not embeddings else 0
                 ),
@@ -425,7 +425,7 @@ class S1Unsupervised(Scenario):
                 "projector_trained": bool(train_history),
                 "projector_loss_history": train_history,
                 "projector_unsupervised": unsupervised_loss,
-                "projector_loss": self.config.training.loss.value,
-                "supervision": supervision.value,
+                "projector_loss": str(self.config.training.loss),
+                "supervision": str(supervision),
             },
         )

@@ -240,7 +240,7 @@ class Calibrator:
     def as_dict(self) -> dict[str, Any]:
         """Provenance dict for :class:`ScenarioResult` metadata / attestation."""
         return {
-            "method": self.method.value,
+            "method": str(self.method),
             "temperature": self.temperature,
             "platt_a": self.platt_a,
             "platt_b": self.platt_b,

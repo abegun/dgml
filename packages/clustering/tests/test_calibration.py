@@ -136,6 +136,18 @@ def test_as_dict_round_trips_the_operating_point() -> None:
     assert Calibrator(**d) == c  # provenance is enough to rebuild the calibrator
 
 
+def test_as_dict_survives_a_rebuilt_calibrator_holding_a_plain_string() -> None:
+    # ``Calibrator(**c.as_dict())`` rebuilds with ``method="platt"`` — a plain
+    # ``str``, since the dataclass does not coerce. ``as_dict`` must not assume
+    # a member (``.value`` would raise ``AttributeError`` here).
+    c = Calibrator(method=CalibrationMethod.PLATT, platt_a=2.0, platt_b=-1.0)
+    rebuilt = Calibrator(**c.as_dict())
+    d = rebuilt.as_dict()
+    assert d["method"] == "platt"
+    assert type(d["method"]) is str
+    assert d == c.as_dict()
+
+
 # ── fit_calibrator ─────────────────────────────────────────────────────────
 def test_temperature_fit_improves_log_likelihood() -> None:
     logits, labels = _mixed_logits()

@@ -333,7 +333,7 @@ def resolve_gone(store: BatchJobStore, record: dict[str, Any]) -> RecordState:
     keys = record.get("keys") or {}
     if keys and all(store.has_response(str(k)) for k in keys.values()):
         state = RecordState.COLLECTED
-        record["state"] = state.value
+        record["state"] = str(state)
     else:
         state = RecordState.DROPPED
         mark_dropped(record, GONE_REASON)
@@ -2311,7 +2311,7 @@ def _drop_batches(
                     entry["error"] = mismatch
                 else:
                     # Nothing left to cancel: the batch is gone (treated as ended).
-                    entry["state"] = resolve_gone(store, record).value
+                    entry["state"] = str(resolve_gone(store, record))
                     entry["gone"] = True
             except Exception as exc:
                 if _collect_if_ended(workspace, store, manifest, record, job):
@@ -2329,7 +2329,7 @@ def _drop_batches(
         ):
             state, error = retry_cleanup(workspace, record)
             # The entry's ``cleanup``: the state's bare value, or the error.
-            entry["cleanup"] = state.value if error is None else error
+            entry["cleanup"] = str(state) if error is None else error
         batches.append(entry)
     return batches, failures
 

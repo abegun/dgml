@@ -71,6 +71,7 @@ from .clustering_types import ClusterMode as ClusterMode
 from .config import load_merged_config
 from .dataset import WorkspaceFileDataset
 from .docsets import DocSetStore
+from .enums import parse_enum
 from .errors import (
     ClassificationConfigMissing,
     ClassificationFailed,
@@ -400,9 +401,9 @@ def clustering(
             "clusters": {},
             "failed_file_ids": [],
             "skipped": True,
-            "mode": (
+            "mode": str(
                 ClusterMode.INCREMENTAL if DocSetStore(workspace).list_all() else ClusterMode.FRESH
-            ).value,
+            ),
             # No engine ran, so there is nothing to report. Echoing the request
             # would put "auto" — the default — in a field documented as the
             # engine that grouped the files.
@@ -413,7 +414,7 @@ def clustering(
             "review_queue": [],
         }
 
-    internal = _clustering_internal(
+    internal = clustering_internal(
         workspace,
         config=config,
         mode=mode,
@@ -564,12 +565,12 @@ def clustering(
         "clusters": clusters,
         "failed_file_ids": failed_file_ids,
         "skipped": False,
-        "mode": internal.mode.value,
+        "mode": str(internal.mode),
         # Which engine actually grouped the files, or null when none ran.
         # Under the default ``method="auto"`` the caller does not choose it,
         # and an ``auto`` run that fell back off the LLM partitioner would
         # otherwise be indistinguishable from one that never routed there.
-        "method": None if internal.method is None else internal.method.value,
+        "method": None if internal.method is None else str(internal.method),
         "n_assigned_existing": n_assigned_existing,
         "n_new_clusters": n_new_clusters,
         "assignments": assignments,
@@ -584,31 +585,6 @@ def clustering_internal(
     method: ClusterMethod = ClusterMethod.AUTO,
     small_corpus_threshold: int = SMALL_CORPUS_MAX_FILES,
     record_usage: bool = False,
-) -> _InternalResult:
-    """Validate ``mode`` / ``method``, then :func:`_clustering_internal`.
-
-    An unknown value raises :class:`ClusteringConfigInvalid`, as it does
-    through :func:`clustering` (which parses them itself and calls
-    :func:`_clustering_internal` directly).
-    """
-    return _clustering_internal(
-        workspace,
-        config=config,
-        mode=_parse_mode(mode),
-        method=_parse_method(method),
-        small_corpus_threshold=small_corpus_threshold,
-        record_usage=record_usage,
-    )
-
-
-def _clustering_internal(
-    workspace: Workspace,
-    *,
-    config: str | None,
-    mode: ClusterMode,
-    method: ClusterMethod,
-    small_corpus_threshold: int,
-    record_usage: bool,
 ) -> _InternalResult:
     """Cluster every unassigned file into a cluster name.
 
@@ -653,9 +629,13 @@ def _clustering_internal(
       an emergent cluster: they resemble neither an existing DocSet nor
       one another, so naming them into a DocSet would invent a category.
 
+    An unknown ``mode`` or ``method`` raises :class:`ClusteringConfigInvalid`.
+
     Returns an :class:`_InternalResult`. Empty workspace ⇒ an empty
     result carrying the resolved ``mode``.
     """
+    mode = _parse_mode(mode)
+    method = _parse_method(method)
     docset_store = DocSetStore(workspace)
     docsets = docset_store.list_all()
     effective_mode = _resolve_mode(mode, has_docsets=bool(docsets))
@@ -1077,22 +1057,22 @@ def _parse_mode(mode: str) -> ClusterMode:
     against members, so a value that is not one would otherwise slip past them
     all and run as whichever branch its ``!=`` tests happened to fall through to.
     """
-    try:
-        return ClusterMode(mode)
-    except ValueError:
+    parsed = parse_enum(ClusterMode, mode)
+    if parsed is None:
         raise ClusteringConfigInvalid(
             f"unknown clustering mode {mode!r}; choose one of {', '.join(CLUSTER_MODES)}."
-        ) from None
+        )
+    return parsed
 
 
 def _parse_method(method: str) -> ClusterMethod:
     """``method`` as a :class:`ClusterMethod`, or :class:`ClusteringConfigInvalid`."""
-    try:
-        return ClusterMethod(method)
-    except ValueError:
+    parsed = parse_enum(ClusterMethod, method)
+    if parsed is None:
         raise ClusteringConfigInvalid(
             f"unknown clustering method {method!r}; choose one of {', '.join(CLUSTER_METHODS)}."
-        ) from None
+        )
+    return parsed
 
 
 def _resolve_mode(mode: ClusterMode, *, has_docsets: bool) -> ClusterMode:

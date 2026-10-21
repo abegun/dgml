@@ -368,7 +368,7 @@ def consolidate(
             result,
             {
                 "enabled": True,
-                "strategy": tail.strategy.value,
+                "strategy": str(tail.strategy),
                 "n_selected": 0,
                 "notes": tail.notes or ["empty tail"],
             },
@@ -394,7 +394,7 @@ def consolidate(
             result,
             {
                 "enabled": True,
-                "strategy": tail.strategy.value,
+                "strategy": str(tail.strategy),
                 "n_selected": len(requests),
                 "notes": tail.notes,
                 "error": f"{type(exc).__name__}: {exc}",
@@ -478,9 +478,9 @@ def _apply_verdicts(
 
     meta: dict[str, Any] = {
         "enabled": True,
-        "mode": cfg.mode.value,
-        "apply": cfg.apply.value,
-        "strategy": tail.strategy.value,
+        "mode": str(cfg.mode),
+        "apply": str(cfg.apply),
+        "strategy": str(tail.strategy),
         "consolidated_by": "llm",
         "model": cfg.model,
         "n_selected": len(requests),

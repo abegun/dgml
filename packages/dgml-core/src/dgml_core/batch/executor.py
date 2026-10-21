@@ -206,10 +206,10 @@ def _mark_tier(response: Any, tier: PricingTier) -> None:
     """Stamp the serving path on the response without touching its cost."""
     hidden = getattr(response, "_hidden_params", None)
     if isinstance(hidden, dict):
-        hidden[TIER_MARKER] = tier.value  # litellm's plain dict, and stored as JSON
+        hidden[TIER_MARKER] = str(tier)  # litellm's plain dict, and stored as JSON
         return
     try:
-        response._hidden_params = {TIER_MARKER: tier.value}
+        response._hidden_params = {TIER_MARKER: str(tier)}
     except (AttributeError, TypeError):
         pass
 

@@ -63,7 +63,7 @@ sampling can be slotted in later via the same loss interface.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any, assert_never, cast
 
 import torch
 from torch import nn
@@ -212,12 +212,19 @@ def train_projector(
         label_ids = torch.tensor([label_to_idx[lbl] for lbl in keep_labels], dtype=torch.long)
         x_train = fused[torch.tensor(keep, dtype=torch.long)].detach()
 
+    # Pydantic validates ``cfg.loss`` on construction, but ``model_construct``
+    # does not: an unknown name must fail with a ValueError, not reach the
+    # ``assert_never`` below as an AssertionError.
+    try:
+        LossName(cfg.loss)
+    except ValueError:
+        raise ValueError(f"Unknown loss: {cfg.loss!r}") from None
     # Build the loss against the projector's underlying manifold.
     if cfg.loss == LossName.CONTRASTIVE:
         loss_fn: torch.nn.Module = ContrastiveLoss(projector.manifold, temperature=cfg.temperature)
     elif cfg.loss == LossName.TRIPLET:
         loss_fn = TripletLoss(projector.manifold, margin=cfg.margin)
-    elif cfg.loss in (LossName.PROTOTYPICAL, LossName.PSEUDO_LABEL):
+    elif cfg.loss == LossName.PROTOTYPICAL or cfg.loss == LossName.PSEUDO_LABEL:
         loss_fn = PrototypicalLoss(projector.manifold)
     elif cfg.loss == LossName.KNN_CONTRASTIVE:
         k = _resolve_pseudo_k(pseudo_k, cfg, n=int(x_train.shape[0]))
@@ -244,7 +251,7 @@ def train_projector(
         view_a = views[0].detach()
         view_b = views[1].detach()
     else:
-        raise ValueError(f"Unknown loss: '{cfg.loss}'")
+        assert_never(cfg.loss)
 
     # ── On-manifold learnable prototypes (supervised prototypical only) ─────
     # When geoopt is available and the manifold supports `to_geoopt()`, the
@@ -331,8 +338,8 @@ def train_projector(
             projected = projector(x_train)
             anchors, positives, negatives = _triplet_samples(projected, label_ids)
             loss = loss_fn(anchors, positives, negatives)
-        else:  # pragma: no cover — guarded above
-            raise ValueError(f"Unknown loss: '{cfg.loss}'")
+        else:
+            assert_never(cfg.loss)
 
         if vicreg is not None:
             loss = loss + vicreg(projected)

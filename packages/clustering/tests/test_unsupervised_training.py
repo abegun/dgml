@@ -406,3 +406,14 @@ def test_train_fusion_projector_rejects_cross_modal() -> None:
             [None] * 6,
             cfg=_cfg(loss="cross_modal"),
         )
+
+
+def test_unknown_loss_raises_value_error() -> None:
+    # Pydantic rejects an unknown loss on construction; ``model_construct``
+    # skips that, and the name must still fail as a ValueError, not an
+    # AssertionError from the exhaustive dispatch.
+    bogus = TrainingConfig.model_construct(**{**_cfg().model_dump(), "loss": "bogus"})
+    fused = _blobs()
+    labels = [f"c{i % 3}" for i in range(fused.shape[0])]
+    with pytest.raises(ValueError, match=r"Unknown loss: 'bogus'"):
+        train_projector(_projector(), fused, labels, cfg=bogus)

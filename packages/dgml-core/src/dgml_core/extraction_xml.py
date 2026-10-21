@@ -1313,7 +1313,7 @@ def _leaf_value(
         if acc is not None:
             acc.with_inputs.append(leaf)
     if method is not None:
-        leaf["method"] = method.value
+        leaf["method"] = str(method)
     return leaf
 
 
